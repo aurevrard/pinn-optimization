@@ -1,7 +1,7 @@
 import torch
 import matplotlib.pyplot as plt
 from pinn import PINN             # ta classe de réseau
-from data_generation import x_f, x_b, u_b, x_test,u_exact  # tes points et ta solution exacte
+from data_gen_poisson import x_f, x_b, u_b, x_test,u_exact  # tes points et ta solution exacte
 
 
 torch.manual_seed(0)

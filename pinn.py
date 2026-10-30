@@ -3,10 +3,10 @@ import torch.nn as nn
 
 
 class PINN (nn.Module):
-    def __init__(self):
+    def __init__(self, in_dim=1):
         super().__init__()
         self.net = nn.Sequential(
-    nn.Linear(1, 20),
+    nn.Linear(in_dim, 20),
     nn.Tanh(),
     nn.Linear(20, 20),
     nn.Tanh(),
@@ -15,8 +15,8 @@ class PINN (nn.Module):
     nn.Linear(20, 1),
     )
 
-    def forward(self, x):
-        return self.net(x)
+    def forward(self, *inputs):
+        return self.net(torch.cat(inputs, dim=1))
 
 if __name__ == "__main__":
     model = PINN()

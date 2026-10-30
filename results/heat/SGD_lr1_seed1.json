@@ -1,0 +1,1 @@
+{"evals": [0.0, 50.04800000000004], "iter": [0, 391], "time": [0.0, 2.744170799967833], "loss": [0.4648036062717438, NaN], "grad_norm": [1.951058465126577, NaN], "l2": [0.9224593639373779, NaN], "residual": [0.0008620477747172117, NaN], "optimizer": "SGD", "lr": 1.0, "seed": 1, "batch_size": 256, "iterations": 391, "diverged": true}
