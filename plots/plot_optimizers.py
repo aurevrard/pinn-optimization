@@ -15,6 +15,7 @@ from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.transforms as mtransforms
 import torch
 
 # Access to the modules at the project root
@@ -82,73 +83,103 @@ def plot_metric(ax, runs, key, ylabel, grid, colors):
     ax.grid(True, which="both", alpha=0.3)
 
 
-def fig_metrics(runs, grid, colors, figs, title):
+def legend_below(fig, ax, ncol):
+    """Single legend below the panels, so that it never hides data."""
+    handles, labels = ax.get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=ncol, frameon=False)
+
+
+def fig_metrics(runs, grid, colors, figs):
     fig, axes = plt.subplots(2, 2, figsize=(11, 8))
     plot_metric(axes[0, 0], runs, "loss", "training loss", grid, colors)
     plot_metric(axes[0, 1], runs, "l2", "relative $L^2$ error", grid, colors)
     plot_metric(axes[1, 0], runs, "grad_norm", r"$\|\nabla_\theta \mathcal{L}\|$", grid, colors)
     plot_metric(axes[1, 1], runs, "residual", "PDE residual (test grid)", grid, colors)
-    axes[0, 0].legend()
-    fig.suptitle(f"{title} — median over seeds, shaded: min–max")
-    fig.tight_layout()
+    legend_below(fig, axes[0, 0], ncol=len(runs))
+    fig.tight_layout(rect=[0, 0.05, 1, 1])     # leave room for the legend
     fig.savefig(figs / "metrics_vs_evals.png", dpi=150)
 
 
 # ============================================================
 # Figure 2: sensitivity to the learning rate
 # ============================================================
-def fig_lr_sensitivity(all_runs, optimizers, colors, figs, title):
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+def fig_lr_sensitivity(all_runs, optimizers, colors, figs):
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
     for ax, key, label in [(axes[0], "loss", "final training loss"),
                            (axes[1], "l2", "final relative $L^2$ error")]:
+        # x in data coordinates, y in axes coordinates (0 = bottom, 1 = top of the panel)
+        top = mtransforms.blended_transform_factory(ax.transData, ax.transAxes)
+
         for name in optimizers:
-            lrs = sorted(lr for (n, lr) in all_runs if n == name)
-            if not lrs:
+            lrs = np.array(sorted(lr for (n, lr) in all_runs if n == name))
+            if len(lrs) == 0:
                 continue
             vals = [np.array([final(r, key) for r in all_runs[(name, lr)]]) for lr in lrs]
             med = np.array([np.nanmedian(v) for v in vals])
             lo = np.array([np.nanmin(v) for v in vals])
             hi = np.array([np.nanmax(v) for v in vals])
+            ok = ~np.isnan(med)              # False when all seeds diverged
 
             if len(lrs) == 1:   # no sweep: horizontal reference line
                 ax.axhline(med[0], color=colors[name], linestyle="--",
                            label=f"{name} (adaptive step)")
-            else:
-                ax.errorbar(lrs, med, yerr=[med - lo, hi - med], marker="o",
-                            capsize=3, color=colors[name], label=name)
+                continue
+
+            ax.errorbar(lrs[ok], med[ok], yerr=[med[ok] - lo[ok], hi[ok] - med[ok]],
+                        marker="o", capsize=3, color=colors[name], label=name)
+
+            # Diverged learning rates: a cross at the top of the panel
+            for lr in lrs[~ok]:
+                ax.plot(lr, 0.95, marker="x", markersize=10, markeredgewidth=2,
+                        color=colors[name], transform=top, clip_on=False)
+                ax.text(lr, 0.87, "diverged", transform=top, ha="center",
+                        fontsize=7, color=colors[name])
+
         ax.set_xscale("log")
         ax.set_yscale("log")
+        # Free band at the top for the "diverged" crosses (so they never overlap data):
+        # raise the upper y-limit by one decade, and widen the x-axis so the labels are not cut
+        y_lo, y_hi = ax.get_ylim()
+        ax.set_ylim(y_lo, y_hi * 10)
+        x_lo, x_hi = ax.get_xlim()
+        ax.set_xlim(x_lo / 1.5, x_hi * 1.5)
         ax.set_xlabel("learning rate")
         ax.set_ylabel(label)
         ax.grid(True, which="both", alpha=0.3)
-    axes[0].legend(fontsize=8)
-    fig.suptitle(f"{title} — sensitivity to the learning rate (median, bars: min–max)")
-    fig.tight_layout()
+
+    legend_below(fig, axes[0], ncol=len(optimizers))
+    fig.tight_layout(rect=[0, 0.1, 1, 1])      # leave room for the legend
     fig.savefig(figs / "lr_sensitivity.png", dpi=150)
 
 
 # ============================================================
 # Figure 3: loss versus computational time
 # ============================================================
-def fig_time(runs, colors, figs, title):
+def fig_time(runs, colors, figs):
+    """Training loss vs training time: median over seeds, shaded min-max.
+    Each run is interpolated (in log10) on a common time grid; beyond the end
+    of a run its value is NaN, so the median only uses the runs still going."""
+    t_max = max(r["time"][-1] for rs in runs.values() for r in rs)
+    t_grid = np.linspace(0, t_max, 300)
+
     plt.figure(figsize=(6, 4))
     for name, rs in runs.items():
-        for i, r in enumerate(rs):
-            plt.semilogy(r["time"], r["loss"], color=colors[name], alpha=0.7,
-                         label=name if i == 0 else None)
+        Y = np.array([np.interp(t_grid, r["time"], np.log10(r["loss"]), right=np.nan)
+                      for r in rs])
+        med, lo, hi = np.nanmedian(Y, 0), np.nanmin(Y, 0), np.nanmax(Y, 0)
+        plt.semilogy(t_grid, 10 ** med, color=colors[name], label=name)
+        plt.fill_between(t_grid, 10 ** lo, 10 ** hi, color=colors[name], alpha=0.2)
     plt.xlabel("training time [s]")
     plt.ylabel("training loss")
-    plt.title(f"{title} — loss vs computational time")
     plt.legend()
     plt.grid(True, which="both", alpha=0.3)
     plt.tight_layout()
     plt.savefig(figs / "loss_vs_time.png", dpi=150)
 
-
 # ============================================================
 # Figure 4: final error versus final loss
 # ============================================================
-def fig_loss_vs_error(runs, colors, figs, title):
+def fig_loss_vs_error(runs, colors, figs):
     plt.figure(figsize=(5.5, 4.5))
     for name, rs in runs.items():
         L = [final(r, "loss") for r in rs]
@@ -156,7 +187,6 @@ def fig_loss_vs_error(runs, colors, figs, title):
         plt.loglog(L, E, "o", color=colors[name], label=name, markersize=7)
     plt.xlabel("final training loss")
     plt.ylabel("final relative $L^2$ error")
-    plt.title(f"{title} — does a low loss imply an accurate solution?")
     plt.legend()
     plt.grid(True, which="both", alpha=0.3)
     plt.tight_layout()
@@ -173,7 +203,7 @@ def evals_to_target(run, target):
     return np.nan
 
 
-def fig_evals_to_target(runs, colors, figs, title, target, max_evals):
+def fig_evals_to_target(runs, colors, figs, target, max_evals):
     names = list(runs)
     vals = [np.array([evals_to_target(r, target) for r in runs[n]]) for n in names]
 
@@ -187,8 +217,7 @@ def fig_evals_to_target(runs, colors, figs, title, target, max_evals):
         plt.errorbar(i, m, yerr=[[m - np.nanmin(v)], [np.nanmax(v) - m]],
                      color="k", capsize=4)
     plt.xticks(range(len(names)), names, rotation=20)
-    plt.ylabel("loss evaluations")
-    plt.title(f"{title} — evaluations to reach loss $\\leq$ {target:.0e}")
+    plt.ylabel(f"loss evaluations to reach loss $\\leq$ {target:.0e}")
     plt.tight_layout()
     plt.savefig(figs / "evals_to_target.png", dpi=150)
 
@@ -197,21 +226,22 @@ def fig_evals_to_target(runs, colors, figs, title, target, max_evals):
 # Summary table (console + LaTeX)
 # ============================================================
 def summary_table(runs, figs):
-    def ms(values, fmt):
+    """Median [min, max] over seeds, consistent with the figures."""
+    def mr(values, fmt):
         v = np.array(values, dtype=float)
         if np.all(np.isnan(v)):
             return "diverged"
-        return f"{np.nanmean(v):{fmt}} $\\pm$ {np.nanstd(v):{fmt}}"
+        return f"{np.nanmedian(v):{fmt}} [{np.nanmin(v):{fmt}}, {np.nanmax(v):{fmt}}]"
 
     rows = []
     for name, rs in runs.items():
         rows.append([name, f"{rs[0]['lr']:g}",
-                     ms([final(r, "loss") for r in rs], ".2e"),
-                     ms([final(r, "l2") for r in rs], ".2e"),
-                     ms([r["iterations"] for r in rs], ".0f"),
-                     ms([r["time"][-1] for r in rs], ".1f")])
+                     mr([final(r, "loss") for r in rs], ".1e"),
+                     mr([final(r, "l2") for r in rs], ".1e"),
+                     f"{np.median([r['iterations'] for r in rs]):.0f}",
+                     f"{np.median([r['time'][-1] for r in rs]):.0f}"])
 
-    header = ["Optimizer", "lr", "Final loss", "Rel. $L^2$ error", "Iterations", "Time [s]"]
+    header = ["Optimizer", "$\\eta$", "Final loss", "Rel. $L^2$ error", "Iterations", "Time [s]"]
     lines = [r"\begin{tabular}{llcccc}", r"\toprule",
              " & ".join(header) + r" \\", r"\midrule"]
     lines += [" & ".join(row) + r" \\" for row in rows]
@@ -219,13 +249,12 @@ def summary_table(runs, figs):
     (figs / "summary_table.tex").write_text("\n".join(lines))
 
     for row in rows:
-        print("  ".join(s.replace(" $\\pm$ ", " ± ") for s in row))
-
+        print("  ".join(row))
 
 # ============================================================
 # Figure 6: signed error map for a chosen optimizer
 # ============================================================
-def fig_error_map(data, results_dir, run_name, name, seed, lr, figs, title):
+def fig_error_map(data, results_dir, run_name, name, seed, lr, figs):
     path = results_dir / f"{run_name(name, lr, seed)}.pt"
     model = PINN(in_dim=2)
     model.load_state_dict(torch.load(path, weights_only=True))
@@ -247,9 +276,8 @@ def fig_error_map(data, results_dir, run_name, name, seed, lr, figs, title):
     plt.colorbar(label=r"$u_\theta - u$")
     plt.xlabel("t")
     plt.ylabel("x")
-    plt.title(f"{title} — signed error, {name} (seed {seed})")
     ax = plt.gca()
-    ax.text(0.02, 0.97, f"Relative $L^2$ error = {err:.2e}",
+    ax.text(0.02, 0.97, f"{name}, seed {seed}\nRelative $L^2$ error = {err:.2e}",
             transform=ax.transAxes, ha="left", va="top", fontsize=9,
             bbox=dict(boxstyle="round", facecolor="white", alpha=0.8))
     plt.tight_layout()
@@ -288,14 +316,14 @@ if __name__ == "__main__":
 
     runs = {name: all_runs[(name, best[name])] for name in optimizers if name in best}
 
-    fig_lr_sensitivity(all_runs, optimizers, colors, figs, title)
-    fig_metrics(runs, grid, colors, figs, title)
-    fig_time(runs, colors, figs, title)
-    fig_loss_vs_error(runs, colors, figs, title)
-    fig_evals_to_target(runs, colors, figs, title, args.target, train_mod.MAX_EVALS)
+    fig_lr_sensitivity(all_runs, optimizers, colors, figs)
+    fig_metrics(runs, grid, colors, figs)
+    fig_time(runs, colors, figs)
+    fig_loss_vs_error(runs, colors, figs)
+    fig_evals_to_target(runs, colors, figs, args.target, train_mod.MAX_EVALS)
     summary_table(runs, figs)
     fig_error_map(data_mod, results_dir, train_mod.run_name, args.map, args.seed,
-                  best[args.map], figs, title)
+                  best[args.map], figs)
 
     print(f"Figures saved in {figs}")
     plt.show()

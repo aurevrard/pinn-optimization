@@ -1,0 +1,11 @@
+\begin{tabular}{llcccc}
+\toprule
+Optimizer & lr & Final loss & Rel. $L^2$ error & Iterations & Time [s] \\
+\midrule
+GD-Armijo & 1 & 2.46e-02 $\pm$ 9.75e-03 & 9.59e-02 $\pm$ 2.00e-02 & 605 $\pm$ 4 & 19.6 $\pm$ 2.0 \\
+SGD & 0.1 & 2.68e-04 $\pm$ 1.79e-04 & 2.18e-02 $\pm$ 8.32e-03 & 31250 $\pm$ 0 & 220.5 $\pm$ 8.1 \\
+SGD-momentum & 0.01 & 2.89e-05 $\pm$ 4.73e-06 & 1.98e-03 $\pm$ 4.04e-04 & 31250 $\pm$ 0 & 219.5 $\pm$ 3.5 \\
+Adam & 0.001 & 2.87e-05 $\pm$ 3.69e-05 & 5.43e-03 $\pm$ 6.20e-03 & 31250 $\pm$ 0 & 225.4 $\pm$ 9.6 \\
+L-BFGS & 1 & 7.28e-06 $\pm$ 2.38e-06 & 7.88e-04 $\pm$ 2.64e-04 & 3924 $\pm$ 28 & 65.9 $\pm$ 6.3 \\
+\bottomrule
+\end{tabular}
