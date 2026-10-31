@@ -1,0 +1,14 @@
+\begin{tabular}{llcccc}
+\toprule
+Optimizer & Sampling & Rel. $L^2$ error & Error in band & PDE residual & Time [s] \\
+\midrule
+SGD-momentum & uniform & 4.7e-01 [4.4e-01, 4.9e-01] & 9.9e-01 [9.3e-01, 9.9e-01] & 3.0e-02 [3.0e-02, 4.2e-02] & 226 \\
+SGD-momentum & shock-refined & 5.1e-01 [4.9e-01, 5.5e-01] & 1.1e+00 [1.0e+00, 1.2e+00] & 6.9e-02 [5.2e-02, 1.0e-01] & 222 \\
+\midrule
+Adam & uniform & 3.3e-01 [2.4e-01, 6.4e-01] & 8.5e-01 [6.0e-01, 1.5e+00] & 1.2e-02 [4.2e-03, 2.0e-02] & 243 \\
+Adam & shock-refined & 5.7e-01 [5.6e-01, 5.9e-01] & 1.4e+00 [1.3e+00, 1.4e+00] & 1.0e-01 [3.7e-02, 1.3e-01] & 252 \\
+\midrule
+L-BFGS & uniform & 8.1e-02 [3.6e-02, 2.0e-01] & 2.1e-01 [8.7e-02, 5.2e-01] & 1.7e-02 [1.4e-02, 3.4e-02] & 72 \\
+L-BFGS & shock-refined & 5.0e-01 [4.6e-01, 6.1e-01] & 1.3e+00 [1.2e+00, 1.4e+00] & 2.9e-02 [2.1e-02, 6.5e+00] & 60 \\
+\bottomrule
+\end{tabular}

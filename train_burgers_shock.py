@@ -38,15 +38,15 @@ SELECTED = {"SGD-momentum": 1e-2, "Adam": 1e-3, "L-BFGS": 1.0}
 # ============================================================
 def shock_refined_points():
     g = torch.Generator().manual_seed(SAMPLING_SEED)
-    n_uniform = N_F - N_BAND
+    n_domain = N_F - N_BAND
     # half in the whole domain [0, 1] x [-1, 1]
-    t_u = torch.rand(n_uniform, 1, generator=g)
-    x_u = -1.0 + 2.0 * torch.rand(n_uniform, 1, generator=g)
-    # half in the band [0, 1] x [-BAND, BAND]
-    t_b = torch.rand(N_BAND, 1, generator=g)
-    x_b = -BAND + 2.0 * BAND * torch.rand(N_BAND, 1, generator=g)
-    t = torch.cat([t_u, t_b]).requires_grad_(True)
-    x = torch.cat([x_u, x_b]).requires_grad_(True)
+    t_domain = torch.rand(n_domain, 1, generator=g)
+    x_domain = -1.0 + 2.0 * torch.rand(n_domain, 1, generator=g)
+    # half in the band [0, 1] x [-BAND, BAND] around the shock
+    t_band = torch.rand(N_BAND, 1, generator=g)
+    x_band = -BAND + 2.0 * BAND * torch.rand(N_BAND, 1, generator=g)
+    t = torch.cat([t_domain, t_band]).requires_grad_(True)
+    x = torch.cat([x_domain, x_band]).requires_grad_(True)
     return t, x
 
 
